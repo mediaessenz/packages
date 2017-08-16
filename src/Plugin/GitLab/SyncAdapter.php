@@ -158,40 +158,20 @@ class SyncAdapter implements SyncAdapterInterface
 
     private function getAllProjects(Remote $remote)
     {
-        $client = $this->getClient($remote);
+        $client =  $this->getClient($remote);
 
-        $isAdmin = $client->api('users')->me()['is_admin'];
-        $projects = array();
-        $page = 1;
-        while (true) {
-
-            /**
-             * there is a difference when accessing /projects (accessible) and /projects/all (all)
-             * http://doc.gitlab.com/ce/api/projects.html
-             */
-            if ($isAdmin) {
-                $visibleProjects = $client->api('projects')->all($page, 100);
-            } else {
-                $visibleProjects = $client->api('projects')->accessible($page, 100);
-            }
-
-            $projects = array_merge($projects, $visibleProjects);
-            $linkHeader = $client->getHttpClient()->getLastResponse()->getHeader('Link');
-            if (strpos($linkHeader, 'rel="next"') === false) {
-                break;
-            }
-
-            ++$page;
+        if ($client->api('users')->me()['is_admin'] === false) {
+                return $client->api('projects')->all(['membership' => true]);
         }
-
-        return $projects;
+        
+        return $client->api('projects')->all();
     }
 
     private function getClient(Remote $remote)
     {
         $config = $this->getRemoteConfig($remote);
 
-        $client = new Client(rtrim($config->getUrl(), '/').'/api/v3/');
+        $client = Client::create(rtrim($config->getUrl(), '/').'/api/v4/');
         $client->authenticate($config->getToken(), Client::AUTH_HTTP_TOKEN);
 
         return $client;
